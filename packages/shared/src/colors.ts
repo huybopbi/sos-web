@@ -3,6 +3,7 @@ import type { ColorGroup, TileState } from "./types.js";
 export type { ColorGroup };
 
 export const COLOR_GROUP_LABELS: Record<ColorGroup, string> = {
+  out_pending: "Out · chưa out",
   out: "Out",
   out_clean: "Out · đã dọn",
   out_inspected: "Out · đã check",
@@ -14,6 +15,7 @@ export const COLOR_GROUP_LABELS: Record<ColorGroup, string> = {
 
 /** Hex for room-status color groups */
 export const GROUP_HEX: Record<ColorGroup, string> = {
+  out_pending: "#5c3317",
   out: "#ef4444",
   out_clean: "#3b82f6",
   out_inspected: "#22c55e",
@@ -23,8 +25,7 @@ export const GROUP_HEX: Record<ColorGroup, string> = {
   none: "#9ca3af",
 };
 
-const OUT_STATES = new Set<TileState>([
-  "out_pending",
+const OUT_DONE_STATES = new Set<TileState>([
   "out_done_dirty",
   "out_done_clean",
   "out_in_dirty",
@@ -33,7 +34,8 @@ const OUT_STATES = new Set<TileState>([
 
 /**
  * Màu phòng theo trạng thái + cleanStatus:
- * - out: clean → xanh dương, inspected → xanh lá, còn lại → đỏ
+ * - out_pending (Due Out / chưa checkout) → nâu đậm
+ * - out đã checkout: clean → xanh dương, inspected → xanh lá, còn lại → đỏ
  * - stay: clean → cyan, còn lại → navy
  * - no_task → xám
  */
@@ -43,8 +45,9 @@ export function tileColorGroup(
 ): ColorGroup {
   if (state === "no_task") return "none";
   if (state === "touch_up") return "touchup";
+  if (state === "out_pending") return "out_pending";
   const s = (cleanStatus ?? "").trim().toLowerCase();
-  if (OUT_STATES.has(state)) {
+  if (OUT_DONE_STATES.has(state)) {
     if (s === "clean") return "out_clean";
     if (s === "inspected") return "out_inspected";
     return "out";
@@ -55,7 +58,7 @@ export function tileColorGroup(
 
 /** @deprecated prefer GROUP_HEX[colorGroup] */
 export const TILE_HEX: Record<TileState, string> = {
-  out_pending: GROUP_HEX.out,
+  out_pending: GROUP_HEX.out_pending,
   out_done_dirty: GROUP_HEX.out,
   out_done_clean: GROUP_HEX.out_clean,
   out_in_dirty: GROUP_HEX.out,
@@ -71,7 +74,7 @@ export const TILE_HEX: Record<TileState, string> = {
 };
 
 export const TILE_BG: Record<TileState, string> = {
-  out_pending: "bg-red-500 text-white",
+  out_pending: "bg-amber-950 text-white",
   out_done_dirty: "bg-red-500 text-white",
   out_done_clean: "bg-blue-500 text-white",
   out_in_dirty: "bg-red-500 text-white",
@@ -87,6 +90,7 @@ export const TILE_BG: Record<TileState, string> = {
 };
 
 export const COLOR_GROUPS: ColorGroup[] = [
+  "out_pending",
   "out",
   "out_clean",
   "out_inspected",

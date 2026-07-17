@@ -28,6 +28,7 @@ export interface HotSosRoom {
 }
 
 export type ColorGroup =
+  | "out_pending"
   | "out"
   | "out_clean"
   | "out_inspected"
@@ -53,6 +54,7 @@ export interface RoomTile {
 }
 
 export interface RoomStats {
+  out_pending: number;
   out: number;
   out_clean: number;
   out_inspected: number;

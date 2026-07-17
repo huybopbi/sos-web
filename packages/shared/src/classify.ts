@@ -133,6 +133,7 @@ export function toRoomTile(room: HotSosRoom): RoomTile {
 
 export function computeRoomStats(rooms: RoomTile[]): RoomStats {
   const stats: RoomStats = {
+    out_pending: 0,
     out: 0,
     out_clean: 0,
     out_inspected: 0,

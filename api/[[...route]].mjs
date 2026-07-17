@@ -6060,6 +6060,7 @@ var HotSosClient = class {
 
 // ../../packages/shared/src/colors.ts
 var GROUP_HEX = {
+  out_pending: "#5c3317",
   out: "#ef4444",
   out_clean: "#3b82f6",
   out_inspected: "#22c55e",
@@ -6068,8 +6069,7 @@ var GROUP_HEX = {
   touchup: "#a855f7",
   none: "#9ca3af"
 };
-var OUT_STATES = /* @__PURE__ */ new Set([
-  "out_pending",
+var OUT_DONE_STATES = /* @__PURE__ */ new Set([
   "out_done_dirty",
   "out_done_clean",
   "out_in_dirty",
@@ -6078,8 +6078,9 @@ var OUT_STATES = /* @__PURE__ */ new Set([
 function tileColorGroup(state, cleanStatus) {
   if (state === "no_task") return "none";
   if (state === "touch_up") return "touchup";
+  if (state === "out_pending") return "out_pending";
   const s = (cleanStatus ?? "").trim().toLowerCase();
-  if (OUT_STATES.has(state)) {
+  if (OUT_DONE_STATES.has(state)) {
     if (s === "clean") return "out_clean";
     if (s === "inspected") return "out_inspected";
     return "out";
@@ -6088,7 +6089,7 @@ function tileColorGroup(state, cleanStatus) {
   return "stay";
 }
 var TILE_HEX = {
-  out_pending: GROUP_HEX.out,
+  out_pending: GROUP_HEX.out_pending,
   out_done_dirty: GROUP_HEX.out,
   out_done_clean: GROUP_HEX.out_clean,
   out_in_dirty: GROUP_HEX.out,
@@ -6200,6 +6201,7 @@ function toRoomTile(room) {
 }
 function computeRoomStats(rooms) {
   const stats = {
+    out_pending: 0,
     out: 0,
     out_clean: 0,
     out_inspected: 0,

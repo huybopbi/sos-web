@@ -6,6 +6,7 @@ interface StatsRowProps {
 }
 
 const ITEMS: Array<{ key: keyof RoomStats; label: string }> = [
+  { key: "out_pending", label: "Out · chưa out" },
   { key: "out", label: "Out" },
   { key: "out_clean", label: "Out · đã dọn" },
   { key: "out_inspected", label: "Out · đã check" },
