@@ -1,0 +1,24 @@
+{
+  "name": "@hotsos/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hotsos/shared": "workspace:*",
+    "@hono/node-server": "^1.13.8",
+    "dotenv": "^16.4.7",
+    "hono": "^4.6.16",
+    "tough-cookie": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/tough-cookie": "^4.0.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
