@@ -11,6 +11,13 @@ interface RoomTileProps {
   room: RoomTile;
 }
 
+function cleanStatusLabel(cleanStatus: string): string {
+  const s = cleanStatus.trim().toLowerCase();
+  if (s === "clean") return "Đã dọn";
+  if (s === "inspected") return "Đã check";
+  return cleanStatus;
+}
+
 export function RoomTileView({ room }: RoomTileProps) {
   return (
     <Tooltip>
@@ -33,7 +40,7 @@ export function RoomTileView({ room }: RoomTileProps) {
             Res: {room.reservationStatus || "—"}
           </p>
           <p className="text-muted-foreground">
-            Clean: {room.cleanStatus || "—"}
+            Dọn dẹp: {room.cleanStatus ? cleanStatusLabel(room.cleanStatus) : "—"}
           </p>
           {room.cleanTaskName ? (
             <p className="text-muted-foreground">{room.cleanTaskName}</p>

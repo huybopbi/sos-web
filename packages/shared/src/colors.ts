@@ -4,10 +4,10 @@ export type { ColorGroup };
 
 export const COLOR_GROUP_LABELS: Record<ColorGroup, string> = {
   out: "Out",
-  out_clean: "Out · clean",
-  out_inspected: "Out · inspected",
+  out_clean: "Out · đã dọn",
+  out_inspected: "Out · đã check",
   stay: "Stay",
-  stay_clean: "Stay · clean",
+  stay_clean: "Stay · đã dọn",
   touchup: "Touch Up",
   none: "Phòng sạch",
 };

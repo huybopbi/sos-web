@@ -7,10 +7,10 @@ interface StatsRowProps {
 
 const ITEMS: Array<{ key: keyof RoomStats; label: string }> = [
   { key: "out", label: "Out" },
-  { key: "out_clean", label: "Out · clean" },
-  { key: "out_inspected", label: "Out · inspected" },
+  { key: "out_clean", label: "Out · đã dọn" },
+  { key: "out_inspected", label: "Out · đã check" },
   { key: "stay", label: "Stay" },
-  { key: "stay_clean", label: "Stay · clean" },
+  { key: "stay_clean", label: "Stay · đã dọn" },
   { key: "touchup", label: "Touch Up" },
   { key: "none", label: "Phòng sạch" },
   { key: "total", label: "Tổng" },
