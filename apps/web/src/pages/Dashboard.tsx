@@ -1,39 +1,85 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
-import type { ColorGroup, RoomTile } from "@hotsos/shared";
-import { COLOR_GROUPS, COLOR_GROUP_LABELS } from "@hotsos/shared";
-import { FloorRow } from "@/components/FloorRow";
-import { StatsRow } from "@/components/StatsRow";
-import { StatusLegend } from "@/components/StatusLegend";
-import { Button } from "@/components/ui/button";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, RefreshCw, SearchX, WifiOff } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import type { ColorGroup, RoomStats, RoomTile } from "@hotsos/shared";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  COLOR_GROUPS,
+  COLOR_GROUP_LABELS,
+  computeRoomStats,
+} from "@hotsos/shared";
+import { FilterToolbar } from "@/components/FilterToolbar";
+import { FloorRow } from "@/components/FloorRow";
+import { RecentActivity, type ActivityItem } from "@/components/RecentActivity";
+import { StatusLegend } from "@/components/StatusLegend";
+import { StatusOverview } from "@/components/StatusOverview";
+import { AppHeader } from "@/components/layout/AppHeader";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FadeIn } from "@/components/ui/fade-in";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { fetchRooms, type RoomsResponse } from "@/lib/api";
-
-const ALL_FLOORS = "all";
-const ALL_STATES = "all";
 
 export function Dashboard() {
   const [data, setData] = useState<RoomsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [floorFilter, setFloorFilter] = useState(ALL_FLOORS);
-  const [stateFilter, setStateFilter] = useState(ALL_STATES);
+  const [selectedFloors, setSelectedFloors] = useState<number[]>([]);
+  const [selectedStates, setSelectedStates] = useState<ColorGroup[]>([]);
+  const [search, setSearch] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const prevStatsRef = useRef<RoomStats | null>(null);
+  const activityIdRef = useRef(0);
+  const lastFetchRef = useRef(0);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    lastFetchRef.current = Date.now();
     try {
       const next = await fetchRooms();
       setData(next);
+
+      // Ghi lại thay đổi giữa các lần refresh (chỉ phía client)
+      const prev = prevStatsRef.current;
+      prevStatsRef.current = next.stats;
+
+      const time = new Date().toLocaleTimeString("vi-VN", {
+        timeZone: "Asia/Tokyo",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      let title: string;
+      let detail: string | undefined;
+      if (!prev) {
+        title = `Đã tải ${next.stats.total} phòng`;
+      } else {
+        const changes = COLOR_GROUPS.filter(
+          (group) => next.stats[group] !== prev[group],
+        ).map(
+          (group) =>
+            `${COLOR_GROUP_LABELS[group]}: ${prev[group]} → ${next.stats[group]}`,
+        );
+        title = changes.length
+          ? "Cập nhật trạng thái phòng"
+          : "Refresh — không có thay đổi";
+        detail = changes.length ? changes.join(" · ") : undefined;
+      }
+      setActivity((list) =>
+        [
+          { id: ++activityIdRef.current, time, title, detail },
+          ...list,
+        ].slice(0, 8),
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      toast.error("Không tải được danh sách phòng", { description: message });
     } finally {
       setLoading(false);
     }
@@ -43,21 +89,54 @@ export function Dashboard() {
     void load();
   }, [load]);
 
+  // Tự làm mới: poll mỗi 60s khi tab đang hiển thị,
+  // và refresh ngay khi quay lại tab nếu dữ liệu đã cũ hơn 30s.
+  useEffect(() => {
+    const AUTO_REFRESH_MS = 60_000;
+    const STALE_MS = 30_000;
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, AUTO_REFRESH_MS);
+
+    const onVisibilityChange = () => {
+      if (
+        document.visibilityState === "visible" &&
+        Date.now() - lastFetchRef.current > STALE_MS
+      ) {
+        void load();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [load]);
+
   const filteredRooms = useMemo(() => {
     if (!data) return [] as RoomTile[];
+    const query = search.trim().toLowerCase();
     return data.rooms.filter((room) => {
-      if (floorFilter !== ALL_FLOORS && room.floor !== Number(floorFilter)) {
+      if (
+        selectedFloors.length > 0 &&
+        (room.floor === null || !selectedFloors.includes(room.floor))
+      ) {
         return false;
       }
       if (
-        stateFilter !== ALL_STATES &&
-        room.colorGroup !== (stateFilter as ColorGroup)
+        selectedStates.length > 0 &&
+        !selectedStates.includes(room.colorGroup)
       ) {
+        return false;
+      }
+      if (query && !room.roomNumber.toLowerCase().includes(query)) {
         return false;
       }
       return true;
     });
-  }, [data, floorFilter, stateFilter]);
+  }, [data, selectedFloors, selectedStates, search]);
 
   const roomsByFloor = useMemo(() => {
     const map = new Map<number, RoomTile[]>();
@@ -88,97 +167,184 @@ export function Dashboard() {
       })
     : "—";
 
+  const stats = data?.stats;
+
+  // Tổng quan trạng thái bám theo bộ lọc tầng
+  const overviewStats = useMemo(() => {
+    if (!data) return null;
+    if (selectedFloors.length === 0) return data.stats;
+    return computeRoomStats(
+      data.rooms.filter(
+        (room) => room.floor !== null && selectedFloors.includes(room.floor),
+      ),
+    );
+  }, [data, selectedFloors]);
+
+  const hasActiveFilter =
+    selectedFloors.length > 0 ||
+    selectedStates.length > 0 ||
+    search.trim() !== "";
+
+  const resetFilters = () => {
+    setSelectedFloors([]);
+    setSelectedStates([]);
+    setSearch("");
+  };
+
+  const sidebarContent = (
+    <div className="space-y-8">
+      <section className="space-y-3">
+        <p className="text-caption font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Chú thích màu
+        </p>
+        <StatusLegend />
+      </section>
+    </div>
+  );
+
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              HotSOS
-            </p>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-              Room Dashboard
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Cập nhật: {updatedLabel} (JST)
-              {data?.sessionActive ? " · session OK" : ""}
-            </p>
-          </div>
-          <Button
-            onClick={() => void load()}
-            disabled={loading}
-            variant="outline"
+      <div className="flex min-h-screen flex-col">
+        <AppHeader
+          loading={loading}
+          sessionActive={Boolean(data?.sessionActive)}
+          onRefresh={() => void load()}
+          onToggleSidebar={() => setSidebarOpen((v) => !v)}
+          onToggleMobileSidebar={() => setMobileSidebarOpen(true)}
+        />
+
+        <div className="flex flex-1">
+          <AppSidebar
+            open={sidebarOpen}
+            mobileOpen={mobileSidebarOpen}
+            onMobileClose={() => setMobileSidebarOpen(false)}
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </header>
+            {sidebarContent}
+          </AppSidebar>
 
-        {data ? <StatsRow stats={data.stats} /> : null}
+          <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-8">
+            <div className="mx-auto flex max-w-screen-2xl flex-col gap-8">
+              <FadeIn className="space-y-2">
+                <h1 className="text-h1 font-semibold text-foreground">
+                  Room Dashboard
+                </h1>
+                <p className="text-body text-muted-foreground">
+                  Cập nhật: {updatedLabel} (JST)
+                </p>
+              </FadeIn>
 
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Chú thích màu</p>
-          <StatusLegend />
-        </div>
+              {error && data ? (
+                <Alert variant="destructive">
+                  <AlertCircle aria-hidden />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              ) : null}
 
-        <div className="flex flex-wrap gap-3">
-          <div className="w-40">
-            <Select value={floorFilter} onValueChange={setFloorFilter}>
-              <SelectTrigger aria-label="Lọc tầng">
-                <SelectValue placeholder="Tầng" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_FLOORS}>Tất cả tầng</SelectItem>
-                {(data?.floors ?? []).map((floor) => (
-                  <SelectItem key={floor} value={String(floor)}>
-                    Tầng {floor}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-56">
-            <Select value={stateFilter} onValueChange={setStateFilter}>
-              <SelectTrigger aria-label="Lọc trạng thái">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_STATES}>Tất cả trạng thái</SelectItem>
-                {COLOR_GROUPS.map((group) => (
-                  <SelectItem key={group} value={group}>
-                    {COLOR_GROUP_LABELS[group]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+              {error && !data && !loading ? (
+                <FadeIn>
+                  <EmptyState
+                    icon={WifiOff}
+                    title="Không tải được dữ liệu phòng"
+                    description={error}
+                    action={
+                      <Button onClick={() => void load()}>
+                        <RefreshCw className="h-4 w-4" aria-hidden />
+                        Thử lại
+                      </Button>
+                    }
+                  />
+                </FadeIn>
+              ) : null}
 
-        {error ? (
-          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            {error}
-          </div>
-        ) : null}
+              <AnimatePresence mode="wait">
+              {loading && !data ? (
+                <FadeIn key="skeleton" className="flex flex-col gap-8">
+                  <Skeleton className="h-44 rounded-xl" />
+                  <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
+                    <div className="flex flex-col gap-8">
+                      {[0, 1, 2].map((row) => (
+                        <div key={row} className="space-y-3">
+                          <Skeleton className="h-5 w-28" />
+                          <div className="flex flex-wrap gap-1.5">
+                            {Array.from({ length: 14 }, (_, i) => (
+                              <Skeleton key={i} className="h-10 w-14 rounded-lg" />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-col gap-6">
+                      <Skeleton className="h-48 rounded-xl" />
+                    </div>
+                  </div>
+                </FadeIn>
+              ) : stats ? (
+                <FadeIn key="content" className="flex flex-col gap-8">
+                  <FadeIn delay={0}>
+                    <StatusOverview
+                      stats={overviewStats ?? stats}
+                      scopeLabel={
+                        selectedFloors.length > 0
+                          ? `Tầng ${[...selectedFloors]
+                              .sort((a, b) => a - b)
+                              .join(", ")}`
+                          : undefined
+                      }
+                    />
+                  </FadeIn>
 
-        {loading && !data ? (
-          <p className="text-sm text-muted-foreground">Đang tải phòng…</p>
-        ) : null}
+                  <FilterToolbar
+                    search={search}
+                    onSearchChange={setSearch}
+                    selectedFloors={selectedFloors}
+                    onFloorsChange={setSelectedFloors}
+                    selectedStates={selectedStates}
+                    onStatesChange={setSelectedStates}
+                    floors={data?.floors ?? []}
+                    hasActiveFilter={hasActiveFilter}
+                    onReset={resetFilters}
+                  />
 
-        {!loading && data && filteredRooms.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Không có phòng khớp bộ lọc.</p>
-        ) : null}
+                  <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
+                    <div className="flex flex-col gap-8 pb-12">
+                      {filteredRooms.length === 0 && !loading ? (
+                        <EmptyState
+                          icon={SearchX}
+                          title="Không có phòng khớp bộ lọc"
+                          description="Thử tìm số phòng khác, đổi tầng hoặc chọn trạng thái khác để xem lại danh sách."
+                          action={
+                            hasActiveFilter ? (
+                              <Button onClick={resetFilters}>
+                                Xóa bộ lọc
+                              </Button>
+                            ) : undefined
+                          }
+                        />
+                      ) : (
+                        <>
+                          {roomsByFloor.floors.map((floor) => (
+                            <FloorRow
+                              key={floor}
+                              floor={floor}
+                              rooms={roomsByFloor.map.get(floor) ?? []}
+                            />
+                          ))}
+                          {roomsByFloor.unknown.length > 0 ? (
+                            <FloorRow floor={0} rooms={roomsByFloor.unknown} />
+                          ) : null}
+                        </>
+                      )}
+                    </div>
 
-        <div className="flex flex-col gap-6 pb-10">
-          {roomsByFloor.floors.map((floor) => (
-            <FloorRow
-              key={floor}
-              floor={floor}
-              rooms={roomsByFloor.map.get(floor) ?? []}
-            />
-          ))}
-          {roomsByFloor.unknown.length > 0 ? (
-            <FloorRow floor={0} rooms={roomsByFloor.unknown} />
-          ) : null}
+                    <div className="flex w-full flex-col gap-6 self-start xl:sticky xl:top-[4.5rem]">
+                      <RecentActivity items={activity} />
+                    </div>
+                  </div>
+                </FadeIn>
+              ) : null}
+              </AnimatePresence>
+            </div>
+          </main>
         </div>
       </div>
     </TooltipProvider>

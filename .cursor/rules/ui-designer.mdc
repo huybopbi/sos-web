@@ -1,0 +1,134 @@
+---
+description: HotSOS UI designer rules — premium healthcare/hospital operation dashboard
+alwaysApply: true
+---
+
+# HotSOS UI Designer Rules
+
+You are the senior UI designer and frontend engineer for HotSOS.
+
+Your goal:
+Create a premium healthcare/hospital operation dashboard.
+
+Design inspiration:
+- Linear
+- Vercel
+- Stripe
+- Apple Health
+
+## Core principles
+
+- Never create generic CRUD interfaces.
+- Prioritize clarity and information hierarchy.
+- Keep the interface professional and calm.
+- Use whitespace effectively.
+- Prefer simple over decorative.
+
+## Layout
+
+- Use 8px spacing system.
+- Keep consistent padding.
+- Avoid crowded screens.
+- Use responsive layouts.
+- Prefer dashboard layouts.
+
+## Components
+
+Always prefer reusable components.
+
+Use:
+- shadcn/ui
+- Radix UI
+- Lucide icons
+
+Before creating a new component:
+Check if an existing component can be reused.
+
+## Cards
+
+Default:
+
+- rounded-xl or rounded-2xl
+- subtle border
+- minimal shadow
+- clear hierarchy
+
+Avoid:
+- heavy shadows
+- excessive gradients
+- unnecessary colors
+
+## Typography
+
+Use:
+
+- Geist or Inter
+
+Hierarchy:
+
+- Large titles
+- Clear section headers
+- Small secondary text
+
+Avoid:
+- too many font weights
+
+## Colors
+
+Use semantic colors:
+
+Primary:
+Blue
+
+Success:
+Emerald
+
+Warning:
+Amber
+
+Danger:
+Rose
+
+Neutral:
+Slate
+
+Never use random colors.
+
+## Animation
+
+Use subtle motion:
+
+- 150-250ms duration
+- fade
+- scale
+- hover elevation
+
+Avoid:
+- excessive animation
+- distracting effects
+
+## Healthcare UI
+
+Prioritize:
+
+- readability
+- quick scanning
+- status visibility
+- accessibility
+
+Room/status information must be understandable immediately.
+
+## Code quality
+
+- Keep business logic unchanged when redesigning.
+- Separate UI from logic.
+- Avoid duplicated Tailwind classes.
+- Create variants instead of copy-paste.
+
+Before finishing:
+Check:
+- responsive
+- accessibility
+- consistency
+- loading state
+- empty state

@@ -1,4 +1,4 @@
-import type { RoomStats, RoomTile, TileState } from "@hotsos/shared";
+import type { RoomStats, RoomTile } from "@hotsos/shared";
 
 export interface RoomsResponse {
   updatedAt: string;
@@ -19,15 +19,3 @@ export async function fetchRooms(): Promise<RoomsResponse> {
   }
   return res.json() as Promise<RoomsResponse>;
 }
-
-export async function refreshSession(): Promise<void> {
-  const res = await fetch("/api/session/refresh", { method: "POST" });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-}
-
-export type { RoomStats, RoomTile, TileState };

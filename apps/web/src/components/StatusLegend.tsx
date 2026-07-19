@@ -1,20 +1,17 @@
-import { legendItems } from "@hotsos/shared";
+import { COLOR_GROUPS, COLOR_GROUP_LABELS } from "@hotsos/shared";
+import { StatusDot } from "@/components/StatusDot";
 
 export function StatusLegend() {
-  const items = legendItems();
-
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-2">
-      {items.map((item) => (
-        <div key={item.group} className="flex items-center gap-1.5 text-xs">
-          <span
-            className="h-3 w-3 shrink-0 rounded-sm"
-            style={{ backgroundColor: item.hex }}
-            aria-hidden
-          />
-          <span className="text-muted-foreground">{item.label}</span>
-        </div>
+    <ul className="flex flex-wrap gap-x-4 gap-y-2">
+      {COLOR_GROUPS.map((group) => (
+        <li key={group} className="flex items-center gap-1.5 text-caption">
+          <StatusDot group={group} className="h-3 w-3" />
+          <span className="text-muted-foreground">
+            {COLOR_GROUP_LABELS[group]}
+          </span>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }

@@ -1,11 +1,10 @@
-import { GROUP_HEX } from "@hotsos/shared";
+import { COLOR_GROUP_LABELS, GROUP_HEX } from "@hotsos/shared";
 import type { RoomTile } from "@hotsos/shared";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 interface RoomTileProps {
   room: RoomTile;
@@ -19,34 +18,39 @@ function cleanStatusLabel(cleanStatus: string): string {
 }
 
 export function RoomTileView({ room }: RoomTileProps) {
+  const hex = GROUP_HEX[room.colorGroup];
+  const statusLabel = COLOR_GROUP_LABELS[room.colorGroup];
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
-          className={cn(
-            "flex h-10 min-w-10 items-center justify-center rounded-md px-1.5 text-xs font-semibold tracking-tight text-white shadow-sm transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          )}
-          style={{ backgroundColor: GROUP_HEX[room.colorGroup] }}
+          aria-label={`Phòng ${room.roomNumber}, ${statusLabel}`}
+          className="flex h-10 min-w-12 items-center justify-center rounded-lg px-2 text-body font-semibold tabular-nums text-white transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          style={{ backgroundColor: hex }}
         >
           {room.roomNumber}
         </button>
       </TooltipTrigger>
       <TooltipContent>
-        <div className="space-y-1">
-          <p className="font-semibold">Phòng {room.roomNumber}</p>
+        <div className="space-y-1.5">
+          <p className="font-medium">
+            Phòng {room.roomNumber} · {statusLabel}
+          </p>
           <p>{room.label}</p>
           <p className="text-muted-foreground">
             Res: {room.reservationStatus || "—"}
           </p>
           <p className="text-muted-foreground">
-            Dọn dẹp: {room.cleanStatus ? cleanStatusLabel(room.cleanStatus) : "—"}
+            Dọn dẹp:{" "}
+            {room.cleanStatus ? cleanStatusLabel(room.cleanStatus) : "—"}
           </p>
           {room.cleanTaskName ? (
             <p className="text-muted-foreground">{room.cleanTaskName}</p>
           ) : null}
-          {room.customerName ? (
-            <p className="text-muted-foreground">{room.customerName}</p>
+          {room.assignStatus ? (
+            <p className="text-muted-foreground">{room.assignStatus}</p>
           ) : null}
         </div>
       </TooltipContent>
