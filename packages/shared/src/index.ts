@@ -11,6 +11,7 @@ export {
   classifyOutDone,
   classifyRoomTile,
   computeRoomStats,
+  isCheckedIn,
   isCleaned,
   isDirty,
   isLinen,

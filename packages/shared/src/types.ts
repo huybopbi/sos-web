@@ -45,6 +45,8 @@ export interface RoomTile {
   colorGroup: ColorGroup;
   label: string;
   reservationStatus: string;
+  /** Khách hiện tại đã check-in (reservationStatus chứa "Checked In") */
+  checkedIn: boolean;
   assignStatus: string;
   cleanStatus: string;
   cleanTaskName: string;

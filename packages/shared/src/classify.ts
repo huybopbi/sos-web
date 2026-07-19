@@ -109,6 +109,13 @@ export function classifyRoomTile(room: HotSosRoom): TileState {
   return "other";
 }
 
+export function isCheckedIn(room: HotSosRoom): boolean {
+  // reservationStatus có thể là chuỗi ghép, ví dụ "Due In\Checked Out"
+  return (room.reservationStatus ?? "")
+    .split("\\")
+    .some((part) => part.trim() === "Checked In");
+}
+
 export function toRoomTile(room: HotSosRoom): RoomTile {
   const roomNumber = String(room.displayRoomNumber ?? "").trim() || "?";
   const tileState = classifyRoomTile(room);
@@ -122,6 +129,7 @@ export function toRoomTile(room: HotSosRoom): RoomTile {
     colorGroup: tileColorGroup(tileState, cleanStatus),
     label: tileLabel(tileState),
     reservationStatus: room.reservationStatus ?? "",
+    checkedIn: isCheckedIn(room),
     assignStatus: room.assignStatus ?? "",
     cleanStatus,
     cleanTaskName: room.cleanTaskName ?? "",

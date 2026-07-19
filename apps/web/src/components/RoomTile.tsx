@@ -1,3 +1,4 @@
+import { UserRound } from "lucide-react";
 import { COLOR_GROUP_LABELS, GROUP_HEX } from "@hotsos/shared";
 import type { RoomTile } from "@hotsos/shared";
 import {
@@ -26,11 +27,19 @@ export function RoomTileView({ room }: RoomTileProps) {
       <TooltipTrigger asChild>
         <button
           type="button"
-          aria-label={`Phòng ${room.roomNumber}, ${statusLabel}`}
-          className="flex h-10 min-w-12 items-center justify-center rounded-lg px-2 text-body font-semibold tabular-nums text-white transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          aria-label={`Phòng ${room.roomNumber}, ${statusLabel}${room.checkedIn ? ", khách đã check-in" : ""}`}
+          className="relative flex h-10 min-w-12 items-center justify-center rounded-lg px-2 text-body font-semibold tabular-nums text-white transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           style={{ backgroundColor: hex }}
         >
           {room.roomNumber}
+          {room.checkedIn ? (
+            <span
+              className="absolute right-0.5 top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white/25"
+              aria-hidden
+            >
+              <UserRound className="h-2.5 w-2.5" />
+            </span>
+          ) : null}
         </button>
       </TooltipTrigger>
       <TooltipContent>
@@ -42,6 +51,7 @@ export function RoomTileView({ room }: RoomTileProps) {
           <p className="text-muted-foreground">
             Res: {room.reservationStatus || "—"}
           </p>
+          {room.checkedIn ? <p>Khách đã check-in</p> : null}
           <p className="text-muted-foreground">
             Dọn dẹp:{" "}
             {room.cleanStatus ? cleanStatusLabel(room.cleanStatus) : "—"}
