@@ -27,6 +27,18 @@ export interface HotSosRoom {
   credits?: number | null;
 }
 
+/** Guest từ GetGuestsWithPreferences */
+export interface HotSosGuest {
+  adultsCount?: number | null;
+  childrenCount?: number | null;
+  reservationStatus?: string | null;
+}
+
+export interface PaxCounts {
+  adults: number;
+  children: number;
+}
+
 export type ColorGroup =
   | "out_pending"
   | "out"
@@ -47,6 +59,8 @@ export interface RoomTile {
   reservationStatus: string;
   /** Khách hiện tại đã check-in (reservationStatus chứa "Checked In") */
   checkedIn: boolean;
+  /** Ngày checkout YYYY-MM-DD, null nếu thiếu */
+  departureDate: string | null;
   assignStatus: string;
   cleanStatus: string;
   cleanTaskName: string;

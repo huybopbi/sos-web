@@ -1,4 +1,4 @@
-import type { HotSosRoom } from "@hotsos/shared";
+import type { HotSosGuest, HotSosRoom } from "@hotsos/shared";
 import { HOTSOS } from "./constants.js";
 import {
   fetchCsrf,
@@ -24,6 +24,10 @@ export class HotSosClient {
 
   get loggedInAt(): number | null {
     return this.session?.loggedInAt ?? null;
+  }
+
+  get shift(): number {
+    return this.config.shift;
   }
 
   async forceRelogin(): Promise<void> {
@@ -92,6 +96,27 @@ export class HotSosClient {
     });
   }
 
+  private async getJson(
+    session: HotSosSession,
+    path: string,
+    query: Record<string, string | number>,
+  ): Promise<Response> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      params.set(key, String(value));
+    }
+    const url = `${HOTSOS.HOUSEKEEPING_BASE}/${path}?${params.toString()}`;
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      [session.csrf.tokenHeaderName]: session.csrf.token,
+    };
+
+    return session.cookies.fetch(url, {
+      method: "GET",
+      headers,
+    });
+  }
+
   async getTotals(): Promise<unknown> {
     return this.withAuth(async (session) => {
       const res = await this.putJson(
@@ -156,6 +181,38 @@ export class HotSosClient {
         throw new Error("List response is not an array");
       }
       return data as HotSosRoom[];
+    });
+  }
+
+  async getGuests(assignmentId: number): Promise<HotSosGuest[]> {
+    if (!this.config.username || !this.config.password) {
+      throw new Error(
+        "Thiếu HOTSOS_USERNAME / HOTSOS_PASSWORD — copy .env.example thành .env và điền credential",
+      );
+    }
+
+    return this.withAuth(async (session) => {
+      const res = await this.getJson(
+        session,
+        "RoomAssignments/GetGuestsWithPreferences",
+        {
+          assignmentId,
+          shift: this.config.shift,
+        },
+      );
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(
+          `GetGuestsWithPreferences failed (HTTP ${res.status}): ${text.slice(0, 200)}`,
+        );
+      }
+
+      const data = await res.json();
+      if (!Array.isArray(data)) {
+        throw new Error("GetGuestsWithPreferences response is not an array");
+      }
+      return data as HotSosGuest[];
     });
   }
 }

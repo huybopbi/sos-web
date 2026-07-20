@@ -116,6 +116,20 @@ export function isCheckedIn(room: HotSosRoom): boolean {
     .some((part) => part.trim() === "Checked In");
 }
 
+/** Chuẩn hóa arrival/departure HotSOS → `YYYY-MM-DD` hoặc null. */
+export function parseHotSosDate(
+  value: string | { _i?: string } | null | undefined,
+): string | null {
+  if (value == null) return null;
+  const raw =
+    typeof value === "object"
+      ? String(value._i ?? "").trim()
+      : String(value).trim();
+  if (!raw) return null;
+  const normalized = raw.replace(/\//g, "-").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+}
+
 export function toRoomTile(room: HotSosRoom): RoomTile {
   const roomNumber = String(room.displayRoomNumber ?? "").trim() || "?";
   const tileState = classifyRoomTile(room);
@@ -130,6 +144,7 @@ export function toRoomTile(room: HotSosRoom): RoomTile {
     label: tileLabel(tileState),
     reservationStatus: room.reservationStatus ?? "",
     checkedIn: isCheckedIn(room),
+    departureDate: parseHotSosDate(room.departureDate),
     assignStatus: room.assignStatus ?? "",
     cleanStatus,
     cleanTaskName: room.cleanTaskName ?? "",

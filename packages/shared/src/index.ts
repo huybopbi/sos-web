@@ -1,6 +1,8 @@
 export type {
   ColorGroup,
+  HotSosGuest,
   HotSosRoom,
+  PaxCounts,
   RoomStats,
   RoomTile,
   TileState,
@@ -19,11 +21,19 @@ export {
   isOutCleanTask,
   isTouchUp,
   isPickup,
+  parseHotSosDate,
   roomFloor,
   stripNonDigits,
   tileLabel,
   toRoomTile,
 } from "./classify.js";
+
+export {
+  activeGuestRecords,
+  assignmentGuestCounts,
+  formatPax,
+  paxPairFromRecords,
+} from "./pax.js";
 
 export {
   COLOR_GROUPS,

@@ -110,6 +110,21 @@ function stateFilterLabel(selectedStates: ColorGroup[]): string {
   return `${selectedStates.length} trạng thái`;
 }
 
+/** YYYY-MM-DD → DD/MM/YYYY để dễ đọc */
+export function formatCheckoutDate(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-");
+  if (!y || !m || !d) return isoDate;
+  return `${d}/${m}/${y}`;
+}
+
+function checkoutFilterLabel(selectedDates: string[]): string {
+  if (selectedDates.length === 0) return "Tất cả checkout";
+  const sorted = [...selectedDates].sort();
+  if (sorted.length === 1) return formatCheckoutDate(sorted[0]);
+  if (sorted.length <= 2) return sorted.map(formatCheckoutDate).join(", ");
+  return `${sorted.length} ngày checkout`;
+}
+
 interface FilterToolbarProps {
   search: string;
   onSearchChange: (value: string) => void;
@@ -117,7 +132,10 @@ interface FilterToolbarProps {
   onFloorsChange: (floors: number[]) => void;
   selectedStates: ColorGroup[];
   onStatesChange: (states: ColorGroup[]) => void;
+  selectedCheckoutDates: string[];
+  onCheckoutDatesChange: (dates: string[]) => void;
   floors: number[];
+  checkoutDates: string[];
   hasActiveFilter: boolean;
   onReset: () => void;
 }
@@ -129,7 +147,10 @@ export function FilterToolbar({
   onFloorsChange,
   selectedStates,
   onStatesChange,
+  selectedCheckoutDates,
+  onCheckoutDatesChange,
   floors,
+  checkoutDates,
   hasActiveFilter,
   onReset,
 }: FilterToolbarProps) {
@@ -174,6 +195,19 @@ export function FilterToolbar({
           selected={selectedStates}
           onChange={(values) => onStatesChange(values as ColorGroup[])}
           triggerClassName="sm:w-52"
+        />
+
+        <MultiSelectFilter
+          ariaLabel="Lọc ngày checkout"
+          triggerLabel={checkoutFilterLabel(selectedCheckoutDates)}
+          allLabel="Tất cả checkout"
+          options={checkoutDates.map((date) => ({
+            value: date,
+            label: formatCheckoutDate(date),
+          }))}
+          selected={selectedCheckoutDates}
+          onChange={onCheckoutDatesChange}
+          triggerClassName="sm:w-48"
         />
 
         {hasActiveFilter ? (

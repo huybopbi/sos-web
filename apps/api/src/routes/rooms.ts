@@ -1,5 +1,10 @@
 import { Hono } from "hono";
-import { computeRoomStats, toRoomTile } from "@hotsos/shared";
+import {
+  assignmentGuestCounts,
+  computeRoomStats,
+  formatPax,
+  toRoomTile,
+} from "@hotsos/shared";
 import type { HotSosClient } from "../hotsos/client.js";
 
 export function createRoomsRouter(client: HotSosClient) {
@@ -34,6 +39,25 @@ export function createRoomsRouter(client: HotSosClient) {
       floors,
       stats: computeRoomStats(tiles),
       rooms: tiles,
+    });
+  });
+
+  // Lazy pax: GET /api/rooms/:assignmentId/pax?reservationStatus=...
+  app.get("/:assignmentId/pax", async (c) => {
+    const assignmentId = Number(c.req.param("assignmentId"));
+    if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
+      return c.json({ error: "assignmentId không hợp lệ" }, 400);
+    }
+
+    const reservationStatus = c.req.query("reservationStatus") ?? "";
+    const guests = await client.getGuests(assignmentId);
+    const pax = assignmentGuestCounts(guests, reservationStatus);
+
+    return c.json({
+      assignmentId,
+      adults: pax.adults,
+      children: pax.children,
+      label: formatPax(pax),
     });
   });
 

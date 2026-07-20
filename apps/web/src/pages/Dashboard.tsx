@@ -21,7 +21,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FadeIn } from "@/components/ui/fade-in";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { fetchRooms, type RoomsResponse } from "@/lib/api";
+import { fetchRooms, clearPaxCache, type RoomsResponse } from "@/lib/api";
 
 export function Dashboard() {
   const [data, setData] = useState<RoomsResponse | null>(null);
@@ -29,6 +29,9 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [selectedFloors, setSelectedFloors] = useState<number[]>([]);
   const [selectedStates, setSelectedStates] = useState<ColorGroup[]>([]);
+  const [selectedCheckoutDates, setSelectedCheckoutDates] = useState<string[]>(
+    [],
+  );
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -43,6 +46,7 @@ export function Dashboard() {
     lastFetchRef.current = Date.now();
     try {
       const next = await fetchRooms();
+      clearPaxCache();
       setData(next);
 
       // Ghi lại thay đổi giữa các lần refresh (chỉ phía client)
@@ -131,12 +135,30 @@ export function Dashboard() {
       ) {
         return false;
       }
+      if (
+        selectedCheckoutDates.length > 0 &&
+        (room.departureDate === null ||
+          !selectedCheckoutDates.includes(room.departureDate))
+      ) {
+        return false;
+      }
       if (query && !room.roomNumber.toLowerCase().includes(query)) {
         return false;
       }
       return true;
     });
-  }, [data, selectedFloors, selectedStates, search]);
+  }, [data, selectedFloors, selectedStates, selectedCheckoutDates, search]);
+
+  const checkoutDates = useMemo(() => {
+    if (!data) return [] as string[];
+    return [
+      ...new Set(
+        data.rooms
+          .map((room) => room.departureDate)
+          .filter((d): d is string => d !== null),
+      ),
+    ].sort();
+  }, [data]);
 
   const roomsByFloor = useMemo(() => {
     const map = new Map<number, RoomTile[]>();
@@ -169,25 +191,65 @@ export function Dashboard() {
 
   const stats = data?.stats;
 
-  // Tổng quan trạng thái bám theo bộ lọc tầng
+  // Tổng quan trạng thái bám theo bộ lọc tầng + ngày checkout
   const overviewStats = useMemo(() => {
     if (!data) return null;
-    if (selectedFloors.length === 0) return data.stats;
+    if (selectedFloors.length === 0 && selectedCheckoutDates.length === 0) {
+      return data.stats;
+    }
     return computeRoomStats(
-      data.rooms.filter(
-        (room) => room.floor !== null && selectedFloors.includes(room.floor),
-      ),
+      data.rooms.filter((room) => {
+        if (
+          selectedFloors.length > 0 &&
+          (room.floor === null || !selectedFloors.includes(room.floor))
+        ) {
+          return false;
+        }
+        if (
+          selectedCheckoutDates.length > 0 &&
+          (room.departureDate === null ||
+            !selectedCheckoutDates.includes(room.departureDate))
+        ) {
+          return false;
+        }
+        return true;
+      }),
     );
-  }, [data, selectedFloors]);
+  }, [data, selectedFloors, selectedCheckoutDates]);
+
+  const overviewScopeLabel = useMemo(() => {
+    const parts: string[] = [];
+    if (selectedFloors.length > 0) {
+      parts.push(
+        `Tầng ${[...selectedFloors].sort((a, b) => a - b).join(", ")}`,
+      );
+    }
+    if (selectedCheckoutDates.length > 0) {
+      const dates = [...selectedCheckoutDates]
+        .sort()
+        .map((d) => {
+          const [y, m, day] = d.split("-");
+          return y && m && day ? `${day}/${m}/${y}` : d;
+        });
+      parts.push(
+        dates.length <= 2
+          ? `Checkout ${dates.join(", ")}`
+          : `${dates.length} ngày checkout`,
+      );
+    }
+    return parts.length > 0 ? parts.join(" · ") : undefined;
+  }, [selectedFloors, selectedCheckoutDates]);
 
   const hasActiveFilter =
     selectedFloors.length > 0 ||
     selectedStates.length > 0 ||
+    selectedCheckoutDates.length > 0 ||
     search.trim() !== "";
 
   const resetFilters = () => {
     setSelectedFloors([]);
     setSelectedStates([]);
+    setSelectedCheckoutDates([]);
     setSearch("");
   };
 
@@ -283,13 +345,7 @@ export function Dashboard() {
                   <FadeIn delay={0}>
                     <StatusOverview
                       stats={overviewStats ?? stats}
-                      scopeLabel={
-                        selectedFloors.length > 0
-                          ? `Tầng ${[...selectedFloors]
-                              .sort((a, b) => a - b)
-                              .join(", ")}`
-                          : undefined
-                      }
+                      scopeLabel={overviewScopeLabel}
                     />
                   </FadeIn>
 
@@ -300,7 +356,10 @@ export function Dashboard() {
                     onFloorsChange={setSelectedFloors}
                     selectedStates={selectedStates}
                     onStatesChange={setSelectedStates}
+                    selectedCheckoutDates={selectedCheckoutDates}
+                    onCheckoutDatesChange={setSelectedCheckoutDates}
                     floors={data?.floors ?? []}
+                    checkoutDates={checkoutDates}
                     hasActiveFilter={hasActiveFilter}
                     onReset={resetFilters}
                   />
