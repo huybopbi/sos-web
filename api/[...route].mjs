@@ -5704,6 +5704,228 @@ var cors = (options) => {
   };
 };
 
+// ../../packages/shared/src/colors.ts
+var GROUP_HEX = {
+  out_pending: "#5c3317",
+  out: "#ef4444",
+  out_clean: "#3b82f6",
+  out_inspected: "#22c55e",
+  stay: "#1e3a8a",
+  stay_clean: "#06b6d4",
+  touchup: "#a855f7",
+  none: "#9ca3af"
+};
+var OUT_DONE_STATES = /* @__PURE__ */ new Set([
+  "out_done_dirty",
+  "out_done_clean",
+  "out_in_dirty",
+  "out_in_clean"
+]);
+function tileColorGroup(state, cleanStatus) {
+  if (state === "no_task") return "none";
+  if (state === "touch_up") return "touchup";
+  if (state === "out_pending") return "out_pending";
+  const s = (cleanStatus ?? "").trim().toLowerCase();
+  if (OUT_DONE_STATES.has(state)) {
+    if (s === "clean") return "out_clean";
+    if (s === "inspected") return "out_inspected";
+    return "out";
+  }
+  if (s === "clean") return "stay_clean";
+  return "stay";
+}
+var TILE_HEX = {
+  out_pending: GROUP_HEX.out_pending,
+  out_done_dirty: GROUP_HEX.out,
+  out_done_clean: GROUP_HEX.out_clean,
+  out_in_dirty: GROUP_HEX.out,
+  out_in_clean: GROUP_HEX.out_clean,
+  stay: GROUP_HEX.stay,
+  stay_dirty: GROUP_HEX.stay,
+  stay_clean: GROUP_HEX.stay,
+  linen: GROUP_HEX.stay,
+  linen_clean: GROUP_HEX.stay,
+  touch_up: GROUP_HEX.touchup,
+  no_task: GROUP_HEX.none,
+  other: GROUP_HEX.stay
+};
+
+// ../../packages/shared/src/classify.ts
+var TILE_LABELS = {
+  out_pending: "Out \xB7 ch\u1EDD kh\xE1ch r\u1EDDi",
+  out_done_dirty: "Out \xB7 ch\u01B0a d\u1ECDn",
+  out_done_clean: "Out \xB7 \u0111\xE3 d\u1ECDn xong",
+  out_in_dirty: "Out/In \xB7 ch\u01B0a d\u1ECDn",
+  out_in_clean: "Out/In \xB7 s\u1EB5n s\xE0ng",
+  stay: "Stay",
+  stay_dirty: "Stay \xB7 ch\u01B0a d\u1ECDn",
+  stay_clean: "Stay \xB7 \u0111\xE3 d\u1ECDn",
+  linen: "Thay gi\u01B0\u1EDDng \xB7 ch\u01B0a d\u1ECDn",
+  linen_clean: "Thay gi\u01B0\u1EDDng \xB7 xong",
+  touch_up: "Touch Up \u624B\u76F4\u3057",
+  no_task: "Ph\xF2ng s\u1EA1ch",
+  other: "Kh\xE1c"
+};
+function tileLabel(state) {
+  return TILE_LABELS[state];
+}
+function stripNonDigits(value) {
+  return value.replace(/\D/g, "");
+}
+function roomFloor(roomNumber) {
+  const digits = stripNonDigits(roomNumber);
+  if (!digits) return null;
+  return Math.floor(parseInt(digits, 10) / 100);
+}
+function lower(value) {
+  return (value ?? "").trim().toLowerCase();
+}
+function isCleaned(room) {
+  const status = lower(room.cleanStatus);
+  return status === "clean" || status === "inspected";
+}
+function isDirty(room) {
+  return lower(room.cleanStatus) === "dirty";
+}
+function isOutCleanTask(room) {
+  if (room.cleanTaskId === 1) return true;
+  const name = room.cleanTaskName ?? "";
+  return name === "Out Clean \u30A2\u30A6\u30C8\u30E1\u30A4\u30AF" || name.includes("Out Clean");
+}
+function isTouchUp(room) {
+  return room.cleanTaskId === 2 || (room.cleanTaskName ?? "").includes("Touch Up");
+}
+function isNoTask(room) {
+  return room.cleanTaskId === -1 || (room.cleanTaskName ?? "").trim() === "\u30BF\u30B9\u30AF\u306A\u3057";
+}
+function isLinen(room) {
+  return room.cleanTaskId === 5 || room.cleanTaskName === "Stay Make Linen \u30EA\u30CD\u30F3\u4EA4\u63DB";
+}
+function classifyOutDone(room) {
+  if (room.reservationStatus === "Checked Out") return "out";
+  if (room.reservationStatus === "Due In\\Checked Out") return "out_in";
+  return null;
+}
+function classifyRoomTile(room) {
+  if (isNoTask(room)) return "no_task";
+  if (isTouchUp(room)) return "touch_up";
+  const status = (room.reservationStatus ?? "").trim();
+  const outCat = classifyOutDone(room);
+  if (status === "Due Out" || status === "Due In\\Out") return "out_pending";
+  if (outCat === "out") return isCleaned(room) ? "out_done_clean" : "out_done_dirty";
+  if (outCat === "out_in") return isCleaned(room) ? "out_in_clean" : "out_in_dirty";
+  if (status === "Stay Over") {
+    if (isLinen(room)) return isCleaned(room) ? "linen_clean" : "linen";
+    if (isCleaned(room)) return "stay_clean";
+    if (isDirty(room)) return "stay_dirty";
+    return "stay";
+  }
+  if (isOutCleanTask(room)) {
+    return isCleaned(room) ? "out_done_clean" : "out_pending";
+  }
+  return "other";
+}
+function isCheckedIn(room) {
+  return (room.reservationStatus ?? "").split("\\").some((part) => part.trim() === "Checked In");
+}
+function parseHotSosDate(value) {
+  if (value == null) return null;
+  const raw2 = typeof value === "object" ? String(value._i ?? "").trim() : String(value).trim();
+  if (!raw2) return null;
+  const normalized = raw2.replace(/\//g, "-").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+}
+function toRoomTile(room) {
+  const roomNumber = String(room.displayRoomNumber ?? "").trim() || "?";
+  const tileState = classifyRoomTile(room);
+  const cleanStatus = room.cleanStatus ?? "";
+  return {
+    roomNumber,
+    floor: roomFloor(roomNumber),
+    assignmentId: room.assignmentId ?? null,
+    tileState,
+    colorGroup: tileColorGroup(tileState, cleanStatus),
+    label: tileLabel(tileState),
+    reservationStatus: room.reservationStatus ?? "",
+    checkedIn: isCheckedIn(room),
+    departureDate: parseHotSosDate(room.departureDate),
+    assignStatus: room.assignStatus ?? "",
+    cleanStatus,
+    cleanTaskName: room.cleanTaskName ?? "",
+    cleanTaskId: room.cleanTaskId ?? null,
+    customerName: room.customerName ?? "",
+    credits: room.credits ?? null
+  };
+}
+function computeRoomStats(rooms) {
+  const stats = {
+    out_pending: 0,
+    out: 0,
+    out_clean: 0,
+    out_inspected: 0,
+    stay: 0,
+    stay_clean: 0,
+    touchup: 0,
+    none: 0,
+    total: rooms.length
+  };
+  for (const room of rooms) {
+    stats[room.colorGroup] += 1;
+  }
+  return stats;
+}
+
+// ../../packages/shared/src/pax.ts
+function paxPairFromRecords(records) {
+  if (records.length === 0) return { adults: 0, children: 0 };
+  const counts = records.map((guest) => ({
+    adults: Math.max(0, guest.adultsCount ?? 0),
+    children: Math.max(0, guest.childrenCount ?? 0)
+  }));
+  if (counts.length === 1) return counts[0];
+  const first = counts[0];
+  const allSame = counts.every(
+    (c) => c.adults === first.adults && c.children === first.children
+  );
+  if (allSame && (first.adults > 1 || first.children > 0)) return first;
+  if (counts.every((c) => c.adults === 1 && c.children === 0)) {
+    return { adults: counts.length, children: 0 };
+  }
+  return {
+    adults: counts.reduce((sum, c) => sum + c.adults, 0),
+    children: counts.reduce((sum, c) => sum + c.children, 0)
+  };
+}
+function activeGuestRecords(guests, roomReservationStatus) {
+  const status = roomReservationStatus.trim();
+  if (status === "Due In\\Checked Out") {
+    return guests.filter((g) => (g.reservationStatus ?? "").trim() === "Due In");
+  }
+  if (status === "Checked Out") {
+    return guests.filter(
+      (g) => (g.reservationStatus ?? "").trim() === "Checked Out"
+    );
+  }
+  if (status === "Due Out") {
+    return guests.filter((g) => {
+      const s = (g.reservationStatus ?? "").trim();
+      return s === "Due Out" || s === "Checked Out";
+    });
+  }
+  return guests.filter(
+    (g) => (g.reservationStatus ?? "").trim() !== "Checked Out"
+  );
+}
+function assignmentGuestCounts(guests, roomReservationStatus) {
+  return paxPairFromRecords(activeGuestRecords(guests, roomReservationStatus));
+}
+function formatPax(pax) {
+  const parts = [];
+  if (pax.adults > 0) parts.push(`${pax.adults}\u{1F464}`);
+  if (pax.children > 0) parts.push(`${pax.children}\u{1F476}`);
+  return parts.join(" ");
+}
+
 // src/hotsos/constants.ts
 var HOTSOS = {
   BASE_URL: "https://hk.m-tech.com",
@@ -5948,6 +6170,9 @@ var HotSosClient = class {
   get loggedInAt() {
     return this.session?.loggedInAt ?? null;
   }
+  get shift() {
+    return this.config.shift;
+  }
   async forceRelogin() {
     if (!this.config.username || !this.config.password) {
       throw new Error(
@@ -5989,12 +6214,29 @@ var HotSosClient = class {
     const headers = {
       "Content-Type": "application/json",
       Accept: "application/json",
+      Referer: `${HOTSOS.APP_BASE}/app/Index`,
       [session.csrf.tokenHeaderName]: session.csrf.token
     };
     return session.cookies.fetch(url, {
       method: "PUT",
       headers,
       body: JSON.stringify(body)
+    });
+  }
+  async getJson(session, path, query) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+      params.set(key, String(value));
+    }
+    const url = `${HOTSOS.HOUSEKEEPING_BASE}/${path}?${params.toString()}`;
+    const headers = {
+      Accept: "application/json",
+      Referer: `${HOTSOS.APP_BASE}/app/Index`,
+      [session.csrf.tokenHeaderName]: session.csrf.token
+    };
+    return session.cookies.fetch(url, {
+      method: "GET",
+      headers
     });
   }
   async getTotals() {
@@ -6056,166 +6298,46 @@ var HotSosClient = class {
       return data;
     });
   }
-};
-
-// ../../packages/shared/src/colors.ts
-var GROUP_HEX = {
-  out_pending: "#5c3317",
-  out: "#ef4444",
-  out_clean: "#3b82f6",
-  out_inspected: "#22c55e",
-  stay: "#1e3a8a",
-  stay_clean: "#06b6d4",
-  touchup: "#a855f7",
-  none: "#9ca3af"
-};
-var OUT_DONE_STATES = /* @__PURE__ */ new Set([
-  "out_done_dirty",
-  "out_done_clean",
-  "out_in_dirty",
-  "out_in_clean"
-]);
-function tileColorGroup(state, cleanStatus) {
-  if (state === "no_task") return "none";
-  if (state === "touch_up") return "touchup";
-  if (state === "out_pending") return "out_pending";
-  const s = (cleanStatus ?? "").trim().toLowerCase();
-  if (OUT_DONE_STATES.has(state)) {
-    if (s === "clean") return "out_clean";
-    if (s === "inspected") return "out_inspected";
-    return "out";
+  async getGuests(assignmentId) {
+    if (!this.config.username || !this.config.password) {
+      throw new Error(
+        "Thi\u1EBFu HOTSOS_USERNAME / HOTSOS_PASSWORD \u2014 copy .env.example th\xE0nh .env v\xE0 \u0111i\u1EC1n credential"
+      );
+    }
+    return this.withAuth(async (session) => {
+      const totalsRes = await this.putJson(
+        session,
+        "HousekeepingSupervisor/GetTotals",
+        {
+          myRoomsFilter: { shift: this.config.shift },
+          shift: this.config.shift
+        }
+      );
+      if (!totalsRes.ok) {
+        throw new Error(`GetTotals failed (HTTP ${totalsRes.status})`);
+      }
+      const res = await this.getJson(
+        session,
+        "RoomAssignments/GetGuestsWithPreferences",
+        {
+          assignmentId,
+          shift: this.config.shift
+        }
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(
+          `GetGuestsWithPreferences failed (HTTP ${res.status}): ${text.slice(0, 200)}`
+        );
+      }
+      const data = await res.json();
+      if (!Array.isArray(data)) {
+        throw new Error("GetGuestsWithPreferences response is not an array");
+      }
+      return data;
+    });
   }
-  if (s === "clean") return "stay_clean";
-  return "stay";
-}
-var TILE_HEX = {
-  out_pending: GROUP_HEX.out_pending,
-  out_done_dirty: GROUP_HEX.out,
-  out_done_clean: GROUP_HEX.out_clean,
-  out_in_dirty: GROUP_HEX.out,
-  out_in_clean: GROUP_HEX.out_clean,
-  stay: GROUP_HEX.stay,
-  stay_dirty: GROUP_HEX.stay,
-  stay_clean: GROUP_HEX.stay,
-  linen: GROUP_HEX.stay,
-  linen_clean: GROUP_HEX.stay,
-  touch_up: GROUP_HEX.touchup,
-  no_task: GROUP_HEX.none,
-  other: GROUP_HEX.stay
 };
-
-// ../../packages/shared/src/classify.ts
-var TILE_LABELS = {
-  out_pending: "Out \xB7 ch\u1EDD kh\xE1ch r\u1EDDi",
-  out_done_dirty: "Out \xB7 ch\u01B0a d\u1ECDn",
-  out_done_clean: "Out \xB7 \u0111\xE3 d\u1ECDn xong",
-  out_in_dirty: "Out/In \xB7 ch\u01B0a d\u1ECDn",
-  out_in_clean: "Out/In \xB7 s\u1EB5n s\xE0ng",
-  stay: "Stay",
-  stay_dirty: "Stay \xB7 ch\u01B0a d\u1ECDn",
-  stay_clean: "Stay \xB7 \u0111\xE3 d\u1ECDn",
-  linen: "Thay gi\u01B0\u1EDDng \xB7 ch\u01B0a d\u1ECDn",
-  linen_clean: "Thay gi\u01B0\u1EDDng \xB7 xong",
-  touch_up: "Touch Up \u624B\u76F4\u3057",
-  no_task: "Ph\xF2ng s\u1EA1ch",
-  other: "Kh\xE1c"
-};
-function tileLabel(state) {
-  return TILE_LABELS[state];
-}
-function stripNonDigits(value) {
-  return value.replace(/\D/g, "");
-}
-function roomFloor(roomNumber) {
-  const digits = stripNonDigits(roomNumber);
-  if (!digits) return null;
-  return Math.floor(parseInt(digits, 10) / 100);
-}
-function lower(value) {
-  return (value ?? "").trim().toLowerCase();
-}
-function isCleaned(room) {
-  const status = lower(room.cleanStatus);
-  return status === "clean" || status === "inspected";
-}
-function isDirty(room) {
-  return lower(room.cleanStatus) === "dirty";
-}
-function isOutCleanTask(room) {
-  if (room.cleanTaskId === 1) return true;
-  const name = room.cleanTaskName ?? "";
-  return name === "Out Clean \u30A2\u30A6\u30C8\u30E1\u30A4\u30AF" || name.includes("Out Clean");
-}
-function isTouchUp(room) {
-  return room.cleanTaskId === 2 || (room.cleanTaskName ?? "").includes("Touch Up");
-}
-function isNoTask(room) {
-  return room.cleanTaskId === -1 || (room.cleanTaskName ?? "").trim() === "\u30BF\u30B9\u30AF\u306A\u3057";
-}
-function isLinen(room) {
-  return room.cleanTaskId === 5 || room.cleanTaskName === "Stay Make Linen \u30EA\u30CD\u30F3\u4EA4\u63DB";
-}
-function classifyOutDone(room) {
-  if (room.reservationStatus === "Checked Out") return "out";
-  if (room.reservationStatus === "Due In\\Checked Out") return "out_in";
-  return null;
-}
-function classifyRoomTile(room) {
-  if (isNoTask(room)) return "no_task";
-  if (isTouchUp(room)) return "touch_up";
-  const status = (room.reservationStatus ?? "").trim();
-  const outCat = classifyOutDone(room);
-  if (status === "Due Out" || status === "Due In\\Out") return "out_pending";
-  if (outCat === "out") return isCleaned(room) ? "out_done_clean" : "out_done_dirty";
-  if (outCat === "out_in") return isCleaned(room) ? "out_in_clean" : "out_in_dirty";
-  if (status === "Stay Over") {
-    if (isLinen(room)) return isCleaned(room) ? "linen_clean" : "linen";
-    if (isCleaned(room)) return "stay_clean";
-    if (isDirty(room)) return "stay_dirty";
-    return "stay";
-  }
-  if (isOutCleanTask(room)) {
-    return isCleaned(room) ? "out_done_clean" : "out_pending";
-  }
-  return "other";
-}
-function toRoomTile(room) {
-  const roomNumber = String(room.displayRoomNumber ?? "").trim() || "?";
-  const tileState = classifyRoomTile(room);
-  const cleanStatus = room.cleanStatus ?? "";
-  return {
-    roomNumber,
-    floor: roomFloor(roomNumber),
-    assignmentId: room.assignmentId ?? null,
-    tileState,
-    colorGroup: tileColorGroup(tileState, cleanStatus),
-    label: tileLabel(tileState),
-    reservationStatus: room.reservationStatus ?? "",
-    assignStatus: room.assignStatus ?? "",
-    cleanStatus,
-    cleanTaskName: room.cleanTaskName ?? "",
-    cleanTaskId: room.cleanTaskId ?? null,
-    customerName: room.customerName ?? "",
-    credits: room.credits ?? null
-  };
-}
-function computeRoomStats(rooms) {
-  const stats = {
-    out_pending: 0,
-    out: 0,
-    out_clean: 0,
-    out_inspected: 0,
-    stay: 0,
-    stay_clean: 0,
-    touchup: 0,
-    none: 0,
-    total: rooms.length
-  };
-  for (const room of rooms) {
-    stats[room.colorGroup] += 1;
-  }
-  return stats;
-}
 
 // src/routes/rooms.ts
 function createRoomsRouter(client) {
@@ -6277,6 +6399,37 @@ function createApp() {
     })
   );
   app.route("/api/rooms", createRoomsRouter(client));
+  app.get("/api/pax", async (c) => {
+    const assignmentId = Number(c.req.query("assignmentId"));
+    if (!Number.isFinite(assignmentId) || assignmentId <= 0) {
+      return c.json({ error: "assignmentId kh\xF4ng h\u1EE3p l\u1EC7" }, 400);
+    }
+    const reservationStatus = c.req.query("reservationStatus") ?? "";
+    const guests = await client.getGuests(assignmentId);
+    const pax = assignmentGuestCounts(guests, reservationStatus);
+    return c.json({
+      assignmentId,
+      adults: pax.adults,
+      children: pax.children,
+      label: formatPax(pax)
+    });
+  });
+  app.post("/api/refresh", async (c) => {
+    try {
+      if (!username || !password) {
+        return c.json({ error: "Missing HOTSOS credentials" }, 500);
+      }
+      await client.forceRelogin();
+      return c.json({
+        ok: true,
+        loggedInAt: client.loggedInAt ? new Date(client.loggedInAt).toISOString() : null
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const status = err instanceof HotSosAuthError ? 401 : 500;
+      return c.json({ error: message }, status);
+    }
+  });
   app.post("/api/session/refresh", async (c) => {
     try {
       if (!username || !password) {

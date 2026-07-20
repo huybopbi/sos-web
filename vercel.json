@@ -4,7 +4,7 @@
   "buildCommand": "pnpm --filter @hotsos/api build:vercel && pnpm --filter @hotsos/web build",
   "outputDirectory": "apps/web/dist",
   "functions": {
-    "api/*.mjs": {
+    "api/[...route].mjs": {
       "maxDuration": 60
     }
   }

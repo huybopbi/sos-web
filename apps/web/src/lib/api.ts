@@ -45,14 +45,13 @@ export async function fetchRoomPax(
   if (pending) return pending;
 
   const request = (async () => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({
+      assignmentId: String(assignmentId),
+    });
     if (reservationStatus) {
       params.set("reservationStatus", reservationStatus);
     }
-    const qs = params.toString();
-    const res = await fetch(
-      `/api/rooms/${assignmentId}/pax${qs ? `?${qs}` : ""}`,
-    );
+    const res = await fetch(`/api/pax?${params.toString()}`);
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as {
         error?: string;

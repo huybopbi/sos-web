@@ -12,10 +12,10 @@ await build({
   platform: "node",
   format: "esm",
   target: "node20",
-  outfile: resolve(apiRoot, "../../api/[[...route]].mjs"),
+  outfile: resolve(apiRoot, "../../api/[...route].mjs"),
   banner: {
     js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);',
   },
 });
 
-console.log("[build-vercel] api/[[...route]].mjs generated");
+console.log("[build-vercel] api/[...route].mjs generated");

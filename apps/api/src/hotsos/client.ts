@@ -86,6 +86,7 @@ export class HotSosClient {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Accept: "application/json",
+      Referer: `${HOTSOS.APP_BASE}/app/Index`,
       [session.csrf.tokenHeaderName]: session.csrf.token,
     };
 
@@ -108,6 +109,7 @@ export class HotSosClient {
     const url = `${HOTSOS.HOUSEKEEPING_BASE}/${path}?${params.toString()}`;
     const headers: Record<string, string> = {
       Accept: "application/json",
+      Referer: `${HOTSOS.APP_BASE}/app/Index`,
       [session.csrf.tokenHeaderName]: session.csrf.token,
     };
 
@@ -192,6 +194,19 @@ export class HotSosClient {
     }
 
     return this.withAuth(async (session) => {
+      // Warm session giống listRooms — quan trọng trên Vercel cold start
+      const totalsRes = await this.putJson(
+        session,
+        "HousekeepingSupervisor/GetTotals",
+        {
+          myRoomsFilter: { shift: this.config.shift },
+          shift: this.config.shift,
+        },
+      );
+      if (!totalsRes.ok) {
+        throw new Error(`GetTotals failed (HTTP ${totalsRes.status})`);
+      }
+
       const res = await this.getJson(
         session,
         "RoomAssignments/GetGuestsWithPreferences",
